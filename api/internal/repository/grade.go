@@ -38,58 +38,15 @@ func (r *gradeImpl) FindByStudentID(ctx context.Context, studentId string, limit
 	)
 
 	// Retrieve grades first
-	var grades []entity.Grade
 	err := r.DB.Table("grades").
-		Select("id, assignment_id, teacher_id, score, feedback").
-		Where("assignment_id IN (SELECT id FROM assignments WHERE student_id = ?) AND deleted_at IS NULL", studentId).
+		Select("grades.id AS id, assignment_id, teacher_id, score, feedback, assignments.subject AS assignment_subject, assignments.tittle AS assignment_tittle, assignments.content AS assignment_content, assignments.student_id AS assignment_student_id, assignments.status AS assignment_status").
+		Joins("INNER JOIN assignments ON grades.assignment_id = assignments.id").
+		Where("assignments.student_id = ? AND grades.deleted_at IS NULL", studentId).
 		Limit(limit).Offset(offset).
 		Order("grades.created_at DESC").
-		Scan(&grades).Error
+		Scan(&res).Error
 	if err != nil {
 		return res, 0, err
-	}
-
-	// Retrieve the corresponding assignments for these grades
-	var assignments []entity.Assignment
-	err = r.DB.Table("assignments").
-		Select("id, subject, tittle, student_id, content").
-		Where("student_id = ?", studentId).
-		Scan(&assignments).Error
-	if err != nil {
-		return res, 0, err
-	}
-
-	// Create a map of assignment IDs to assignments
-	assignmentMap := make(map[string]entity.Assignment)
-	for _, assignment := range assignments {
-		assignmentMap[assignment.ID] = assignment
-	}
-
-	// Combine grades with their corresponding assignments
-	for _, grade := range grades {
-		assignment, exists := assignmentMap[grade.AssignmentID]
-		if exists {
-			res = append(res, dto.ResponseGrade{
-				ID:           grade.ID,
-				AssignmentID: grade.AssignmentID,
-				TeacherID:    grade.TeacherID,
-				Score:        grade.Score,
-				Feedback:     grade.Feedback,
-				Assignment: struct {
-					ID        string "json:\"id\""
-					Subject   string "json:\"subject\""
-					Tittle    string "json:\"tittle\""
-					StudentID string "json:\"student_id\""
-					Content   string "json:\"content\""
-				}{
-					ID:        assignment.ID,
-					Subject:   assignment.Subject,
-					Tittle:    assignment.Tittle,
-					StudentID: assignment.StudentID,
-					Content:   assignment.Content,
-				},
-			})
-		}
 	}
 
 	// Count the total records matching the filter
