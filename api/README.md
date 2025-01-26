@@ -18,7 +18,7 @@ make migration-up //up script
 ```sh
 make run
 ```
-## Run 
+## Build 
 ```sh
 docker build -t interface-teacher-grading-api .
 docker-compose up --build -d 
